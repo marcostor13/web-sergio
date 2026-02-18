@@ -1,0 +1,67 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Iniciar Sesión - Sergio Nolasco">
+	<main class="min-h-screen flex items-center justify-center p-4">
+		<div class="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-8 border border-slate-100">
+			<div class="text-center mb-8">
+				<h1 class="text-3xl font-black text-slate-900 mb-2 font-title">Bienvenido</h1>
+				<p class="text-slate-500">Ingresa tus credenciales para continuar</p>
+			</div>
+
+			<form id="loginForm" class="space-y-6">
+				<div>
+					<label class="label-field">Correo Electrónico</label>
+					<input type="email" name="email" class="input-field" placeholder="ejemplo@correo.com" required />
+				</div>
+				<div>
+					<label class="label-field">Contraseña</label>
+					<input type="password" name="password" class="input-field" placeholder="••••••••" required />
+				</div>
+
+				<button type="submit" class="w-full btn-secondary py-4 text-lg">
+					Entrar
+				</button>
+
+				<div id="errorMessage" class="hidden p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium text-center"></div>
+
+				<p class="text-center text-slate-500 text-sm">
+					¿No tienes cuenta? 
+					<a href="/register" class="text-primary font-bold hover:underline">Regístrate aquí</a>
+				</p>
+			</form>
+		</div>
+	</main>
+</Layout>
+
+<script>
+	const form = document.getElementById('loginForm') as HTMLFormElement;
+	const errorDiv = document.getElementById('errorMessage') as HTMLDivElement;
+
+	form?.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		const formData = new FormData(form);
+		const data = Object.fromEntries(formData);
+
+		try {
+			const res = await fetch('/api/auth/login', {
+				method: 'POST',
+				body: JSON.stringify(data),
+				headers: { 'Content-Type': 'application/json' }
+			});
+
+			const result = await res.json();
+
+			if (!res.ok) {
+				errorDiv.textContent = result.message || 'Error al iniciar sesión';
+				errorDiv.classList.remove('hidden');
+			} else {
+				window.location.href = '/dashboard';
+			}
+		} catch (error) {
+			errorDiv.textContent = 'Ocurrió un error inesperado';
+			errorDiv.classList.remove('hidden');
+		}
+	});
+</script>

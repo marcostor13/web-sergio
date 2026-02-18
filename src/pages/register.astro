@@ -1,0 +1,79 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Registro - Sergio Nolasco">
+	<main class="min-h-screen flex items-center justify-center p-4">
+		<div class="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-8 border border-slate-100">
+			<div class="text-center mb-8">
+				<h1 class="text-3xl font-black text-slate-900 mb-2 font-title">Crea tu Cuenta</h1>
+				<p class="text-slate-500">Comienza tu camino hacia el éxito</p>
+			</div>
+
+			<form id="registerForm" class="space-y-4">
+				<div>
+					<label class="label-field">Nombre Completo</label>
+					<input type="text" name="name" class="input-field" placeholder="Juan Pérez" required />
+				</div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="label-field">Teléfono</label>
+                        <input type="tel" name="phone" class="input-field" placeholder="+502 ..." />
+                    </div>
+                    <div>
+                        <label class="label-field text-slate-700">IMO</label>
+                        <input type="text" name="imo" class="input-field" placeholder="Nombre de tu IMO" />
+                    </div>
+                </div>
+				<div>
+					<label class="label-field">Correo Electrónico</label>
+					<input type="email" name="email" class="input-field" placeholder="ejemplo@correo.com" required />
+				</div>
+				<div>
+					<label class="label-field">Contraseña</label>
+					<input type="password" name="password" class="input-field" placeholder="••••••••" required />
+				</div>
+
+				<button type="submit" class="w-full btn-primary py-4 text-lg mt-4">
+					Registrarse
+				</button>
+
+				<div id="statusMessage" class="hidden p-4 rounded-xl text-sm font-medium text-center"></div>
+
+				<p class="text-center text-slate-500 text-sm">
+					¿Ya tienes cuenta? 
+					<a href="/login" class="text-slate-900 font-bold hover:underline">Inicia sesión</a>
+				</p>
+			</form>
+		</div>
+	</main>
+</Layout>
+
+<script is:inline>
+	const form = document.getElementById('registerForm');
+
+	form?.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		const formData = new FormData(form);
+		const data = Object.fromEntries(formData);
+
+		try {
+			const res = await fetch('/api/auth/register', {
+				method: 'POST',
+				body: JSON.stringify(data),
+				headers: { 'Content-Type': 'application/json' }
+			});
+
+			const result = await res.json();
+
+			if (!res.ok) {
+                window.showNotification(result.message || 'Error al registrarse', 'error');
+			} else {
+                window.showNotification('¡Registro exitoso! Redirigiendo...');
+				setTimeout(() => window.location.href = '/login', 2000);
+			}
+		} catch (error) {
+            window.showNotification('Ocurrió un error inesperado', 'error');
+		}
+	});
+</script>

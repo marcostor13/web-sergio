@@ -1,0 +1,223 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { verifyToken } from '../lib/auth';
+import { connectDB } from '../lib/mongodb';
+import { FuturoImposible } from '../models/FuturoImposible';
+
+const token = Astro.cookies.get('token')?.value;
+if (!token) return Astro.redirect('/login');
+
+const decoded = verifyToken(token);
+if (!decoded) return Astro.redirect('/login');
+
+await connectDB();
+const fis = await (FuturoImposible as any).find({ user: decoded.userId }).sort({ createdAt: -1 });
+---
+
+<Layout title="Dashboard - Mis Futuros Imposibles">
+	<header class="bg-white border-b border-slate-100 py-6">
+		<div class="max-w-5xl mx-auto px-4 flex justify-between items-center">
+			<h1 class="text-2xl font-black text-slate-900 font-title">Panel de FI</h1>
+			<a href="/logout" class="text-sm font-bold text-slate-500 hover:text-red-600 transition-colors">Cerrar Sesión</a>
+		</div>
+	</header>
+
+	<main class="max-w-5xl mx-auto px-4 py-12">
+		<div class="flex justify-between items-end mb-10">
+			<div>
+				<h2 class="text-4xl font-black text-slate-900 mb-2">Mis Futuros Imposibles</h2>
+				<p class="text-slate-500 text-lg">Donde tus sueños se vuelven objetivos alcanzables.</p>
+			</div>
+			<button id="openModal" class="btn-primary">
+				+ Nuevo FI
+			</button>
+		</div>
+
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+			{fis.length === 0 ? (
+				<div class="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200">
+					<p class="text-slate-400">Aún no has definido ningún Futuro Imposible.</p>
+				</div>
+			) : fis.map(fi => (
+				<div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-xl shadow-slate-200/50 flex flex-col justify-between">
+					<div>
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-xl font-bold text-slate-900">{fi.title}</h3>
+                            <span class="text-[10px] bg-slate-100 px-2 py-1 rounded-full text-slate-400 font-black uppercase">FI</span>
+                        </div>
+						<p class="text-slate-600 text-sm mb-6 leading-relaxed line-clamp-3">{fi.description}</p>
+					</div>
+
+					<div>
+						<div class="flex justify-between text-xs font-bold mb-2">
+							<span class="text-slate-400 uppercase tracking-wider">Progreso Actual</span>
+							<span class="text-primary font-black">{fi.percentage}%</span>
+						</div>
+						<div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden mb-6 group cursor-pointer relative" onclick={`window.updateProgress('${fi._id}', ${fi.percentage})`}>
+							<div class="h-full bg-primary transition-all duration-1000" style={`width: ${fi.percentage}%`}></div>
+                            <div class="absolute inset-0 opacity-0 group-hover:opacity-100 bg-black/5 flex items-center justify-center text-[10px] font-black uppercase text-slate-400 transition-opacity">Editar</div>
+						</div>
+						
+						<div class="flex gap-2">
+							<button class="flex-1 py-2 bg-slate-50 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-100 transition-colors edit-btn" 
+                                data-id={fi._id} 
+                                data-title={fi.title} 
+                                data-description={fi.description}
+                                data-percentage={fi.percentage}>
+								Editar Detalles
+							</button>
+							<button class="py-2 px-4 bg-red-50 text-red-500 text-xs font-bold rounded-lg hover:bg-red-100 transition-colors delete-btn" data-id={fi._id}>
+								<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+							</button>
+						</div>
+					</div>
+				</div>
+			))}
+		</div>
+	</main>
+
+	<!-- Modal para Crear/Editar -->
+	<div id="metaModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+		<div class="bg-white w-full max-w-lg rounded-3xl p-8 shadow-2xl">
+			<h3 id="modalTitle" class="text-2xl font-black text-slate-900 mb-6 font-title">Nuevo Futuro Imposible</h3>
+			<form id="metaForm" class="space-y-6">
+                <input type="hidden" id="fiId" name="id" />
+				<div>
+					<label class="label-field text-primary">Título del FI</label>
+					<input type="text" id="fiTitleInput" name="title" class="input-field" placeholder="Ej: Libertad Financiera mediante Tecmeing" required />
+				</div>
+				<div>
+					<label class="label-field text-primary">Descripción / Por qué es importante</label>
+					<textarea id="fiDescriptionInput" name="description" rows="3" class="input-field" placeholder="Describe tu misión..."></textarea>
+				</div>
+                <div id="progressContainer" class="hidden">
+					<label class="label-field text-primary">Progreso (%)</label>
+					<input type="range" id="fiPercentageInput" name="percentage" min="0" max="100" class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-primary" />
+                    <div class="text-center font-bold text-primary mt-2" id="percentageValue">0%</div>
+				</div>
+
+				<div class="flex gap-4 pt-4">
+					<button type="button" id="closeModal" class="flex-1 py-4 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-colors text-sm">
+						Cancelar
+					</button>
+					<button type="submit" class="flex-1 btn-primary py-4 text-sm">
+						Guardar FI
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+</Layout>
+
+<script is:inline>
+	const openModal = document.getElementById('openModal');
+	const closeModal = document.getElementById('closeModal');
+	const modal = document.getElementById('metaModal');
+	const form = document.getElementById('metaForm');
+    const modalTitle = document.getElementById('modalTitle');
+    const progressContainer = document.getElementById('progressContainer');
+    const fiIdInput = document.getElementById('fiId');
+    const fiTitleInput = document.getElementById('fiTitleInput');
+    const fiDescriptionInput = document.getElementById('fiDescriptionInput');
+    const fiPercentageInput = document.getElementById('fiPercentageInput');
+    const percentageValue = document.getElementById('percentageValue');
+
+    fiPercentageInput.oninput = () => {
+        percentageValue.textContent = `${fiPercentageInput.value}%`;
+    };
+
+    const resetModal = () => {
+        form.reset();
+        fiIdInput.value = '';
+        modalTitle.textContent = 'Nuevo Futuro Imposible';
+        progressContainer.classList.add('hidden');
+        percentageValue.textContent = '0%';
+        modal.classList.add('hidden');
+    };
+
+	openModal?.addEventListener('click', () => {
+        modalTitle.textContent = 'Nuevo Futuro Imposible';
+        progressContainer.classList.add('hidden');
+        modal.classList.remove('hidden');
+    });
+
+	closeModal?.addEventListener('click', resetModal);
+
+	form?.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		const formData = new FormData(form);
+		const data = Object.fromEntries(formData);
+        const id = fiIdInput.value;
+
+		try {
+            const url = id ? `/api/fis/${id}` : '/api/fis';
+            const method = id ? 'PATCH' : 'POST';
+
+			const res = await fetch(url, {
+				method,
+				body: JSON.stringify(data),
+				headers: { 'Content-Type': 'application/json' }
+			});
+
+			if (res.ok) {
+                window.showNotification(id ? 'FI actualizado con éxito' : 'Nuevo FI creado correctamente');
+				setTimeout(() => window.location.reload(), 1000);
+			} else {
+				window.showNotification('Error al procesar la solicitud', 'error');
+			}
+		} catch (error) {
+			window.showNotification('Error inesperado', 'error');
+		}
+	});
+
+    // Global Progress Update (shortcut)
+    window.updateProgress = (id, current) => {
+        const newProgress = prompt('Nuevo progreso (0-100):', current);
+        if (newProgress !== null && !isNaN(newProgress)) {
+            fetch(`/api/fis/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ percentage: parseInt(newProgress) })
+            }).then(res => {
+                if (res.ok) {
+                    window.showNotification('Progreso actualizado');
+                    setTimeout(() => window.location.reload(), 800);
+                }
+            });
+        }
+    };
+
+	// Edit Logic
+	document.querySelectorAll('.edit-btn').forEach(btn => {
+		btn.addEventListener('click', () => {
+			const id = btn.dataset.id;
+            const title = btn.dataset.title;
+            const desc = btn.dataset.description;
+            const perc = btn.dataset.percentage;
+
+            fiIdInput.value = id;
+            fiTitleInput.value = title;
+            fiDescriptionInput.value = desc;
+            fiPercentageInput.value = perc;
+            percentageValue.textContent = `${perc}%`;
+
+            modalTitle.textContent = 'Editar Futuro Imposible';
+            progressContainer.classList.remove('hidden');
+            modal.classList.remove('hidden');
+		});
+	});
+
+	// Delete logic
+	document.querySelectorAll('.delete-btn').forEach(btn => {
+		btn.addEventListener('click', async () => {
+			const id = btn.dataset.id;
+			if (confirm('¿Estás seguro de eliminar este Futuro Imposible?')) {
+				const res = await fetch(`/api/fis/${id}`, { method: 'DELETE' });
+				if (res.ok) {
+                    window.showNotification('FI eliminado correctamente');
+                    setTimeout(() => window.location.reload(), 800);
+                }
+			}
+		});
+	});
+</script>

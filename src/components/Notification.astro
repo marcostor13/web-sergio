@@ -1,0 +1,39 @@
+<div id="notification-container" class="fixed top-6 right-6 z-[100] flex flex-col gap-3 max-w-sm w-full"></div>
+
+<script is:inline>
+  window.showNotification = (message, type = 'success') => {
+    const container = document.getElementById('notification-container');
+    if (!container) return;
+
+    const notification = document.createElement('div');
+    const bgClass = type === 'success' ? 'bg-[#76B82A]' : 'bg-red-500';
+    
+    notification.className = `${bgClass} text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center justify-between transform transition-all duration-300 translate-x-full opacity-0 font-bold text-sm`;
+    notification.innerHTML = `
+      <span>${message}</span>
+      <button class="ml-4 opacity-70 hover:opacity-100">✕</button>
+    `;
+
+    container.appendChild(notification);
+
+    // Animate in
+    setTimeout(() => {
+      notification.classList.remove('translate-x-full', 'opacity-0');
+    }, 10);
+
+    // Auto remove
+    const timer = setTimeout(() => {
+      removeNotification();
+    }, 4000);
+
+    const removeNotification = () => {
+      notification.classList.add('translate-x-full', 'opacity-0');
+      setTimeout(() => {
+        notification.remove();
+      }, 300);
+      clearTimeout(timer);
+    };
+
+    notification.querySelector('button').onclick = removeNotification;
+  };
+</script>

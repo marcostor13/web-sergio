@@ -1,0 +1,121 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { connectDB } from '../../lib/mongodb';
+import { User } from '../../models/User';
+import { verifyToken } from '../../lib/auth';
+
+const token = Astro.cookies.get('token')?.value;
+if (!token) return Astro.redirect('/login');
+
+const decoded = verifyToken(token) as any;
+if (!decoded || decoded.role !== 'admin') return Astro.redirect('/dashboard');
+
+await connectDB();
+const adminUser = await (User as any).findById(decoded.userId);
+---
+
+<Layout title="Admin - Todos los Futuros Imposibles">
+    <header class="bg-slate-900 text-white py-6">
+		<div class="max-w-6xl mx-auto px-4 flex justify-between items-center">
+			<h1 class="text-2xl font-black font-title flex items-center gap-2">
+                <span class="bg-primary text-white px-2 py-0.5 rounded text-xs uppercase tracking-tighter">Admin</span>
+                Panel Global FI
+            </h1>
+            <div class="flex items-center gap-4">
+                <span class="text-xs font-bold opacity-60">Hola, {adminUser.name}</span>
+			    <a href="/logout" class="text-sm font-bold hover:text-primary transition-colors">Cerrar Sesión</a>
+            </div>
+		</div>
+	</header>
+
+    <main class="max-w-6xl mx-auto px-4 py-12">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-6 mb-12">
+            <div>
+                <h2 class="text-4xl font-black text-slate-900 mb-2">Visión General</h2>
+                <p class="text-slate-500">Supervisando el progreso de toda la comunidad.</p>
+            </div>
+            
+            <div class="relative w-full max-w-md">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Buscar por FI, descripción o usuario..." 
+                    class="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm"
+                />
+                <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            </div>
+        </div>
+
+        <div id="fisContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Cargando... -->
+            <div class="col-span-full py-20 text-center">
+                <p class="text-slate-400 font-bold animate-pulse">Cargando Futuros Imposibles...</p>
+            </div>
+        </div>
+    </main>
+</Layout>
+
+<script is:inline>
+    const container = document.getElementById('fisContainer');
+    const searchInput = document.getElementById('searchInput');
+
+    async function fetchFis(query = '') {
+        try {
+            const res = await fetch(`/api/admin/fis?q=${query}`);
+            if (!res.ok) throw new Error();
+            const fis = await res.json();
+            renderFis(fis);
+        } catch (error) {
+            container.innerHTML = '<div class="col-span-full text-red-500 font-bold text-center">Error al cargar datos</div>';
+        }
+    }
+
+    function renderFis(fis) {
+        if (fis.length === 0) {
+            container.innerHTML = '<div class="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400">No se encontraron resultados</div>';
+            return;
+        }
+
+        container.innerHTML = fis.map(fi => `
+            <div class="bg-white rounded-3xl p-6 border border-slate-100 shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:shadow-primary/5 transition-all group overflow-hidden relative">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full -mr-12 -mt-12 transition-all group-hover:bg-primary/10"></div>
+                
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-black text-slate-400 text-xs">
+                        ${fi.user.name.charAt(0)}
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-black text-slate-900 line-clamp-1">${fi.user.name}</h4>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${fi.user.email}</p>
+                    </div>
+                </div>
+
+                <h3 class="text-lg font-black text-slate-900 mb-3 leading-tight min-h-[3.5rem] line-clamp-2">${fi.title}</h3>
+                
+                <div class="mb-6">
+                    <div class="flex justify-between text-[10px] font-black mb-1.5">
+                        <span class="text-slate-400 uppercase">Progreso</span>
+                        <span class="text-primary">${fi.percentage}%</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-primary transition-all duration-1000" style="width: ${fi.percentage}%"></div>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-50 flex justify-between items-center">
+                    <span class="text-[10px] text-slate-300 font-bold">${new Date(fi.createdAt).toLocaleDateString()}</span>
+                    <button class="text-[10px] font-black text-primary hover:underline uppercase tracking-widest">Ver Detalles</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Debounce search
+    let timeout;
+    searchInput.oninput = () => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fetchFis(searchInput.value), 300);
+    };
+
+    fetchFis();
+</script>
