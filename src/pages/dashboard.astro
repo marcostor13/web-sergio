@@ -3,6 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import { verifyToken } from '../lib/auth';
 import { connectDB } from '../lib/mongodb';
 import { FuturoImposible } from '../models/FuturoImposible';
+import { User } from '../models/User';
 
 const token = Astro.cookies.get('token')?.value;
 if (!token) return Astro.redirect('/login');
@@ -11,6 +12,7 @@ const decoded = verifyToken(token);
 if (!decoded) return Astro.redirect('/login');
 
 await connectDB();
+const user = await (User as any).findById(decoded.userId);
 const fis = await (FuturoImposible as any).find({ user: decoded.userId }).sort({ createdAt: -1 });
 ---
 
@@ -18,18 +20,36 @@ const fis = await (FuturoImposible as any).find({ user: decoded.userId }).sort({
 	<header class="bg-white border-b border-slate-100 py-6">
 		<div class="max-w-5xl mx-auto px-4 flex justify-between items-center">
 			<h1 class="text-2xl font-black text-slate-900 font-title">Panel de FI</h1>
-			<a href="/logout" class="text-sm font-bold text-slate-500 hover:text-red-600 transition-colors">Cerrar Sesión</a>
+            <div class="flex items-center gap-4">
+                <span class="text-sm font-bold text-slate-600">Hola, {user.name}</span>
+			    <a href="/logout" class="text-sm font-bold text-slate-400 hover:text-red-600 transition-colors">Cerrar Sesión</a>
+            </div>
 		</div>
 	</header>
 
 	<main class="max-w-5xl mx-auto px-4 py-12">
+        <!-- Sección de Contrato -->
+        <div class="bg-slate-50 rounded-3xl p-8 mb-12 border border-slate-100">
+            <label class="block text-xs font-black text-primary uppercase tracking-widest mb-3">Mi Contrato / Declaración</label>
+            <div class="flex gap-4">
+                <input 
+                    type="text" 
+                    id="contratoInput" 
+                    value={user.contrato || ''} 
+                    placeholder="Escribe tu frase de contrato aquí..." 
+                    class="flex-1 bg-white border-none rounded-2xl px-6 py-4 shadow-sm focus:ring-2 focus:ring-primary outline-none text-slate-700 font-medium"
+                />
+                <button id="saveContrato" class="btn-primary px-8">Guardar</button>
+            </div>
+        </div>
+
 		<div class="flex justify-between items-end mb-10">
 			<div>
 				<h2 class="text-4xl font-black text-slate-900 mb-2">Mis Futuros Imposibles</h2>
 				<p class="text-slate-500 text-lg">Donde tus sueños se vuelven objetivos alcanzables.</p>
 			</div>
 			<button id="openModal" class="btn-primary">
-				+ Nuevo FI
+				Agregar Futuros Imposibles
 			</button>
 		</div>
 
@@ -77,23 +97,41 @@ const fis = await (FuturoImposible as any).find({ user: decoded.userId }).sort({
 	</main>
 
 	<!-- Modal para Crear/Editar -->
-	<div id="metaModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-		<div class="bg-white w-full max-w-lg rounded-3xl p-8 shadow-2xl">
-			<h3 id="modalTitle" class="text-2xl font-black text-slate-900 mb-6 font-title">Nuevo Futuro Imposible</h3>
+	<div id="metaModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+		<div class="bg-white w-full max-w-lg rounded-3xl p-8 shadow-2xl my-8">
+			<h3 id="modalTitle" class="text-2xl font-black text-slate-900 mb-6 font-title">Mis Futuros Imposibles</h3>
 			<form id="metaForm" class="space-y-6">
                 <input type="hidden" id="fiId" name="id" />
-				<div>
-					<label class="label-field text-primary">Título del FI</label>
-					<input type="text" id="fiTitleInput" name="title" class="input-field" placeholder="Ej: Libertad Financiera mediante Tecmeing" required />
-				</div>
-				<div>
-					<label class="label-field text-primary">Descripción / Por qué es importante</label>
-					<textarea id="fiDescriptionInput" name="description" rows="3" class="input-field" placeholder="Describe tu misión..."></textarea>
-				</div>
-                <div id="progressContainer" class="hidden">
-					<label class="label-field text-primary">Progreso (%)</label>
-					<input type="range" id="fiPercentageInput" name="percentage" min="0" max="100" class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-primary" />
-                    <div class="text-center font-bold text-primary mt-2" id="percentageValue">0%</div>
+                
+                <div id="multiInputContainer" class="space-y-4">
+                    <p class="text-sm text-slate-500 mb-2">Ingresa tus 5 Futuros Imposibles prioritarios:</p>
+                    {[1, 2, 3, 4, 5].map(i => (
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300">#{i}</span>
+                            <input 
+                                type="text" 
+                                name={`fi_${i}`} 
+                                class="input-field py-3 pl-10 text-sm" 
+                                placeholder={`Ej: Mi meta número ${i}`} 
+                            />
+                        </div>
+                    ))}
+                </div>
+
+				<div id="singleInputContainer" class="hidden space-y-6">
+					<div>
+						<label class="label-field text-primary">Título del FI</label>
+						<input type="text" id="fiTitleInput" name="title" class="input-field" placeholder="Ej: Libertad Financiera mediante Tecmeing" />
+					</div>
+					<div>
+						<label class="label-field text-primary">Descripción / Por qué es importante</label>
+						<textarea id="fiDescriptionInput" name="description" rows="3" class="input-field" placeholder="Describe tu misión..."></textarea>
+					</div>
+                    <div id="progressContainer" class="hidden">
+						<label class="label-field text-primary">Progreso (%)</label>
+						<input type="range" id="fiPercentageInput" name="percentage" min="0" max="100" class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-primary" />
+                        <div class="text-center font-bold text-primary mt-2" id="percentageValue">0%</div>
+					</div>
 				</div>
 
 				<div class="flex gap-4 pt-4">
@@ -101,7 +139,7 @@ const fis = await (FuturoImposible as any).find({ user: decoded.userId }).sort({
 						Cancelar
 					</button>
 					<button type="submit" class="flex-1 btn-primary py-4 text-sm">
-						Guardar FI
+						Guardar Futuros
 					</button>
 				</div>
 			</form>
@@ -121,6 +159,31 @@ const fis = await (FuturoImposible as any).find({ user: decoded.userId }).sort({
     const fiDescriptionInput = document.getElementById('fiDescriptionInput');
     const fiPercentageInput = document.getElementById('fiPercentageInput');
     const percentageValue = document.getElementById('percentageValue');
+    
+    const multiInputContainer = document.getElementById('multiInputContainer');
+    const singleInputContainer = document.getElementById('singleInputContainer');
+
+    const contratoInput = document.getElementById('contratoInput');
+    const saveContrato = document.getElementById('saveContrato');
+
+    // Manejo de Contrato
+    saveContrato?.addEventListener('click', async () => {
+        const contrato = contratoInput.value;
+        try {
+            const res = await fetch('/api/user/update', {
+                method: 'PATCH',
+                body: JSON.stringify({ contrato }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (res.ok) {
+                window.showNotification('Contrato guardado correctamente');
+            } else {
+                window.showNotification('Error al guardar el contrato', 'error');
+            }
+        } catch (e) {
+            window.showNotification('Error de conexión', 'error');
+        }
+    });
 
     fiPercentageInput.oninput = () => {
         percentageValue.textContent = `${fiPercentageInput.value}%`;
@@ -129,15 +192,18 @@ const fis = await (FuturoImposible as any).find({ user: decoded.userId }).sort({
     const resetModal = () => {
         form.reset();
         fiIdInput.value = '';
-        modalTitle.textContent = 'Nuevo Futuro Imposible';
+        modalTitle.textContent = 'Agregar Futuros Imposibles';
+        multiInputContainer.classList.remove('hidden');
+        singleInputContainer.classList.add('hidden');
         progressContainer.classList.add('hidden');
         percentageValue.textContent = '0%';
         modal.classList.add('hidden');
     };
 
 	openModal?.addEventListener('click', () => {
-        modalTitle.textContent = 'Nuevo Futuro Imposible';
-        progressContainer.classList.add('hidden');
+        modalTitle.textContent = 'Agregar Futuros Imposibles';
+        multiInputContainer.classList.remove('hidden');
+        singleInputContainer.classList.add('hidden');
         modal.classList.remove('hidden');
     });
 
@@ -150,21 +216,45 @@ const fis = await (FuturoImposible as any).find({ user: decoded.userId }).sort({
         const id = fiIdInput.value;
 
 		try {
-            const url = id ? `/api/fis/${id}` : '/api/fis';
-            const method = id ? 'PATCH' : 'POST';
+            if (id) {
+                // Edición individual
+                const res = await fetch(`/api/fis/${id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify(data),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (res.ok) {
+                    window.showNotification('FI actualizado con éxito');
+                    setTimeout(() => window.location.reload(), 1000);
+                }
+            } else {
+                // Creación múltiple a partir de los 5 inputs
+                const fis = [
+                    data.fi_1, 
+                    data.fi_2, 
+                    data.fi_3, 
+                    data.fi_4, 
+                    data.fi_5
+                ].map(t => t?.trim()).filter(t => t && t !== '');
+                
+                if (fis.length === 0) {
+                    window.showNotification('Por favor, agrega al menos un FI', 'error');
+                    return;
+                }
 
-			const res = await fetch(url, {
-				method,
-				body: JSON.stringify(data),
-				headers: { 'Content-Type': 'application/json' }
-			});
+                const res = await fetch('/api/fis/bulk', {
+                    method: 'POST',
+                    body: JSON.stringify({ fis }),
+                    headers: { 'Content-Type': 'application/json' }
+                });
 
-			if (res.ok) {
-                window.showNotification(id ? 'FI actualizado con éxito' : 'Nuevo FI creado correctamente');
-				setTimeout(() => window.location.reload(), 1000);
-			} else {
-				window.showNotification('Error al procesar la solicitud', 'error');
-			}
+                if (res.ok) {
+                    window.showNotification(`${fis.length} Futuros Imposibles agregados correctamente`);
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    window.showNotification('Error al guardar los Futuros', 'error');
+                }
+            }
 		} catch (error) {
 			window.showNotification('Error inesperado', 'error');
 		}
@@ -202,6 +292,8 @@ const fis = await (FuturoImposible as any).find({ user: decoded.userId }).sort({
             percentageValue.textContent = `${perc}%`;
 
             modalTitle.textContent = 'Editar Futuro Imposible';
+            multiInputContainer.classList.add('hidden');
+            singleInputContainer.classList.remove('hidden');
             progressContainer.classList.remove('hidden');
             modal.classList.remove('hidden');
 		});
