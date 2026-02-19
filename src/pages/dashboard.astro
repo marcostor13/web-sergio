@@ -7,8 +7,10 @@ import { FuturoImposible } from '../models/FuturoImposible';
 const token = Astro.cookies.get('token')?.value;
 if (!token) return Astro.redirect('/login');
 
-const decoded = verifyToken(token);
+const decoded = verifyToken(token) as any;
 if (!decoded) return Astro.redirect('/login');
+
+if (decoded.role === 'admin') return Astro.redirect('/admin/dashboard');
 
 await connectDB();
 const fis = await (FuturoImposible as any).find({ user: decoded.userId }).sort({ createdAt: -1 });

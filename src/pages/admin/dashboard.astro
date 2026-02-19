@@ -53,6 +53,61 @@ const adminUser = await (User as any).findById(decoded.userId);
             </div>
         </div>
     </main>
+
+    <!-- Modal de Detalles -->
+    <div id="detailModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden">
+            <div class="bg-slate-900 px-8 py-6 flex justify-between items-start">
+                <div>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-primary bg-primary/20 px-2 py-0.5 rounded mb-2 inline-block">Futuro Imposible</span>
+                    <h3 id="detailTitle" class="text-xl font-black text-white leading-tight"></h3>
+                </div>
+                <button id="closeDetail" class="text-slate-400 hover:text-white transition-colors ml-4 mt-1 flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <div class="px-8 py-6 space-y-6">
+                <!-- Usuario -->
+                <div class="flex items-center gap-3">
+                    <div id="detailAvatar" class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-black text-primary text-sm flex-shrink-0"></div>
+                    <div>
+                        <p id="detailUserName" class="text-sm font-black text-slate-900"></p>
+                        <p id="detailUserEmail" class="text-xs text-slate-400 font-bold"></p>
+                    </div>
+                </div>
+
+                <!-- Descripción -->
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Descripción</p>
+                    <p id="detailDescription" class="text-sm text-slate-600 leading-relaxed"></p>
+                </div>
+
+                <!-- Progreso -->
+                <div>
+                    <div class="flex justify-between text-[10px] font-black mb-2">
+                        <span class="text-slate-400 uppercase tracking-wider">Progreso</span>
+                        <span id="detailPercentageText" class="text-primary"></span>
+                    </div>
+                    <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                        <div id="detailProgressBar" class="h-full bg-primary transition-all duration-700 rounded-full"></div>
+                    </div>
+                </div>
+
+                <!-- Fechas -->
+                <div class="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Creado</p>
+                        <p id="detailCreatedAt" class="text-sm font-bold text-slate-700"></p>
+                    </div>
+                    <div id="detailTargetContainer">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Fecha Objetivo</p>
+                        <p id="detailTargetDate" class="text-sm font-bold text-slate-700"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </Layout>
 
 <script is:inline>
@@ -104,7 +159,19 @@ const adminUser = await (User as any).findById(decoded.userId);
 
                 <div class="pt-4 border-t border-slate-50 flex justify-between items-center">
                     <span class="text-[10px] text-slate-300 font-bold">${new Date(fi.createdAt).toLocaleDateString()}</span>
-                    <button class="text-[10px] font-black text-primary hover:underline uppercase tracking-widest">Ver Detalles</button>
+                    <button 
+                        class="ver-detalles text-[10px] font-black text-primary hover:underline uppercase tracking-widest"
+                        data-fi='${JSON.stringify({
+                            title: fi.title,
+                            description: fi.description || "",
+                            percentage: fi.percentage,
+                            createdAt: fi.createdAt,
+                            targetDate: fi.targetDate || null,
+                            userName: fi.user.name,
+                            userEmail: fi.user.email
+                        }).replace(/'/g, "&#39;")}'>
+                        Ver Detalles
+                    </button>
                 </div>
             </div>
         `).join('');
@@ -116,6 +183,41 @@ const adminUser = await (User as any).findById(decoded.userId);
         clearTimeout(timeout);
         timeout = setTimeout(() => fetchFis(searchInput.value), 300);
     };
+
+    // Modal de detalles - event delegation en el contenedor
+    const detailModal = document.getElementById('detailModal');
+    const closeDetail = document.getElementById('closeDetail');
+
+    container.addEventListener('click', (e) => {
+        const btn = e.target.closest('.ver-detalles');
+        if (!btn) return;
+
+        const fi = JSON.parse(btn.dataset.fi);
+
+        document.getElementById('detailTitle').textContent = fi.title;
+        document.getElementById('detailAvatar').textContent = fi.userName.charAt(0).toUpperCase();
+        document.getElementById('detailUserName').textContent = fi.userName;
+        document.getElementById('detailUserEmail').textContent = fi.userEmail;
+        document.getElementById('detailDescription').textContent = fi.description || 'Sin descripción.';
+        document.getElementById('detailPercentageText').textContent = `${fi.percentage}%`;
+        document.getElementById('detailProgressBar').style.width = `${fi.percentage}%`;
+        document.getElementById('detailCreatedAt').textContent = new Date(fi.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+
+        const targetContainer = document.getElementById('detailTargetContainer');
+        if (fi.targetDate) {
+            document.getElementById('detailTargetDate').textContent = new Date(fi.targetDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+            targetContainer.classList.remove('hidden');
+        } else {
+            targetContainer.classList.add('hidden');
+        }
+
+        detailModal.classList.remove('hidden');
+    });
+
+    closeDetail.addEventListener('click', () => detailModal.classList.add('hidden'));
+    detailModal.addEventListener('click', (e) => {
+        if (e.target === detailModal) detailModal.classList.add('hidden');
+    });
 
     fetchFis();
 </script>

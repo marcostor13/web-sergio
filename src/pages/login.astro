@@ -57,7 +57,7 @@ import Layout from '../layouts/Layout.astro';
 				errorDiv.textContent = result.message || 'Error al iniciar sesión';
 				errorDiv.classList.remove('hidden');
 			} else {
-				window.location.href = '/dashboard';
+				window.location.href = result.role === 'admin' ? '/admin/dashboard' : '/dashboard';
 			}
 		} catch (error) {
 			errorDiv.textContent = 'Ocurrió un error inesperado';
