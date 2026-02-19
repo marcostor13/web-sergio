@@ -113,111 +113,100 @@ const adminUser = await (User as any).findById(decoded.userId);
 <script is:inline>
     const container = document.getElementById('fisContainer');
     const searchInput = document.getElementById('searchInput');
+    var currentFisList = [];
 
-    async function fetchFis(query = '') {
+    async function fetchFis(query) {
+        query = query || '';
         try {
-            const res = await fetch(`/api/admin/fis?q=${query}`);
+            var res = await fetch('/api/admin/fis?q=' + encodeURIComponent(query));
             if (!res.ok) throw new Error();
-            const fis = await res.json();
+            var fis = await res.json();
             renderFis(fis);
-        } catch (error) {
+        } catch (err) {
             container.innerHTML = '<div class="col-span-full text-red-500 font-bold text-center">Error al cargar datos</div>';
         }
     }
 
+    function escapeHtml(text) {
+        if (!text) return '';
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     function renderFis(fis) {
-        if (fis.length === 0) {
+        currentFisList = fis || [];
+        if (currentFisList.length === 0) {
             container.innerHTML = '<div class="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400">No se encontraron resultados</div>';
             return;
         }
-
-        container.innerHTML = fis.map(fi => `
-            <div class="bg-white rounded-3xl p-6 border border-slate-100 shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:shadow-primary/5 transition-all group overflow-hidden relative">
-                <div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full -mr-12 -mt-12 transition-all group-hover:bg-primary/10"></div>
-                
-                <div class="flex items-center gap-3 mb-6">
-                    <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-black text-slate-400 text-xs">
-                        ${fi.user.name.charAt(0)}
-                    </div>
-                    <div>
-                        <h4 class="text-sm font-black text-slate-900 line-clamp-1">${fi.user.name}</h4>
-                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">${fi.user.email}</p>
-                    </div>
-                </div>
-
-                <h3 class="text-lg font-black text-slate-900 mb-3 leading-tight min-h-[3.5rem] line-clamp-2">${fi.title}</h3>
-                
-                <div class="mb-6">
-                    <div class="flex justify-between text-[10px] font-black mb-1.5">
-                        <span class="text-slate-400 uppercase">Progreso</span>
-                        <span class="text-primary">${fi.percentage}%</span>
-                    </div>
-                    <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div class="h-full bg-primary transition-all duration-1000" style="width: ${fi.percentage}%"></div>
-                    </div>
-                </div>
-
-                <div class="pt-4 border-t border-slate-50 flex justify-between items-center">
-                    <span class="text-[10px] text-slate-300 font-bold">${new Date(fi.createdAt).toLocaleDateString()}</span>
-                    <button 
-                        class="ver-detalles text-[10px] font-black text-primary hover:underline uppercase tracking-widest"
-                        data-fi='${JSON.stringify({
-                            title: fi.title,
-                            description: fi.description || "",
-                            percentage: fi.percentage,
-                            createdAt: fi.createdAt,
-                            targetDate: fi.targetDate || null,
-                            userName: fi.user.name,
-                            userEmail: fi.user.email
-                        }).replace(/'/g, "&#39;")}'>
-                        Ver Detalles
-                    </button>
-                </div>
-            </div>
-        `).join('');
+        var html = '';
+        for (var i = 0; i < currentFisList.length; i++) {
+            var fi = currentFisList[i];
+            var user = fi.user || {};
+            var userName = user.name || 'Usuario';
+            var userEmail = user.email || '';
+            html += '<div class="bg-white rounded-3xl p-6 border border-slate-100 shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:shadow-primary/5 transition-all group overflow-hidden relative">' +
+                '<div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full -mr-12 -mt-12 transition-all group-hover:bg-primary/10"></div>' +
+                '<div class="flex items-center gap-3 mb-6">' +
+                '<div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-black text-slate-400 text-xs">' + escapeHtml(userName.charAt(0)) + '</div>' +
+                '<div><h4 class="text-sm font-black text-slate-900 line-clamp-1">' + escapeHtml(userName) + '</h4>' +
+                '<p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">' + escapeHtml(userEmail) + '</p></div></div>' +
+                '<h3 class="text-lg font-black text-slate-900 mb-3 leading-tight min-h-[3.5rem] line-clamp-2">' + escapeHtml(fi.title) + '</h3>' +
+                '<div class="mb-6"><div class="flex justify-between text-[10px] font-black mb-1.5">' +
+                '<span class="text-slate-400 uppercase">Progreso</span><span class="text-primary">' + (fi.percentage || 0) + '%</span></div>' +
+                '<div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">' +
+                '<div class="h-full bg-primary transition-all duration-1000" style="width:' + (fi.percentage || 0) + '%"></div></div></div>' +
+                '<div class="pt-4 border-t border-slate-50 flex justify-between items-center">' +
+                '<span class="text-[10px] text-slate-300 font-bold">' + (fi.createdAt ? new Date(fi.createdAt).toLocaleDateString() : '') + '</span>' +
+                '<button type="button" class="ver-detalles text-[10px] font-black text-primary hover:underline uppercase tracking-widest" data-fi-index="' + i + '">Ver Detalles</button>' +
+                '</div></div>';
+        }
+        container.innerHTML = html;
     }
 
-    // Debounce search
-    let timeout;
-    searchInput.oninput = () => {
+    var timeout;
+    searchInput.oninput = function() {
         clearTimeout(timeout);
-        timeout = setTimeout(() => fetchFis(searchInput.value), 300);
+        timeout = setTimeout(function() { fetchFis(searchInput.value); }, 300);
     };
 
-    // Modal de detalles - event delegation en el contenedor
-    const detailModal = document.getElementById('detailModal');
-    const closeDetail = document.getElementById('closeDetail');
+    var detailModal = document.getElementById('detailModal');
+    var closeDetail = document.getElementById('closeDetail');
 
-    container.addEventListener('click', (e) => {
-        const btn = e.target.closest('.ver-detalles');
+    container.addEventListener('click', function(e) {
+        var btn = e.target && e.target.closest && e.target.closest('.ver-detalles');
         if (!btn) return;
+        var idx = btn.getAttribute('data-fi-index');
+        if (idx === null || idx === '') return;
+        var fi = currentFisList[parseInt(idx, 10)];
+        if (!fi) return;
 
-        const fi = JSON.parse(btn.dataset.fi);
+        var user = fi.user || {};
+        var userName = user.name || 'Usuario';
+        var userEmail = user.email || '';
 
-        document.getElementById('detailTitle').textContent = fi.title;
-        document.getElementById('detailAvatar').textContent = fi.userName.charAt(0).toUpperCase();
-        document.getElementById('detailUserName').textContent = fi.userName;
-        document.getElementById('detailUserEmail').textContent = fi.userEmail;
+        document.getElementById('detailTitle').textContent = fi.title || '';
+        document.getElementById('detailAvatar').textContent = (userName.charAt(0) || '?').toUpperCase();
+        document.getElementById('detailUserName').textContent = userName;
+        document.getElementById('detailUserEmail').textContent = userEmail;
         document.getElementById('detailDescription').textContent = fi.description || 'Sin descripción.';
-        document.getElementById('detailPercentageText').textContent = `${fi.percentage}%`;
-        document.getElementById('detailProgressBar').style.width = `${fi.percentage}%`;
-        document.getElementById('detailCreatedAt').textContent = new Date(fi.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+        document.getElementById('detailPercentageText').textContent = (fi.percentage || 0) + '%';
+        document.getElementById('detailProgressBar').style.width = (fi.percentage || 0) + '%';
+        document.getElementById('detailCreatedAt').textContent = fi.createdAt ? new Date(fi.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
 
-        const targetContainer = document.getElementById('detailTargetContainer');
+        var targetContainer = document.getElementById('detailTargetContainer');
         if (fi.targetDate) {
             document.getElementById('detailTargetDate').textContent = new Date(fi.targetDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
             targetContainer.classList.remove('hidden');
         } else {
             targetContainer.classList.add('hidden');
         }
-
         detailModal.classList.remove('hidden');
     });
 
-    closeDetail.addEventListener('click', () => detailModal.classList.add('hidden'));
-    detailModal.addEventListener('click', (e) => {
-        if (e.target === detailModal) detailModal.classList.add('hidden');
-    });
+    if (closeDetail) closeDetail.addEventListener('click', function() { detailModal.classList.add('hidden'); });
+    if (detailModal) detailModal.addEventListener('click', function(e) { if (e.target === detailModal) detailModal.classList.add('hidden'); });
 
     fetchFis();
 </script>

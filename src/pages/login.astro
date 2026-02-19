@@ -57,7 +57,19 @@ import Layout from '../layouts/Layout.astro';
 				errorDiv.textContent = result.message || 'Error al iniciar sesión';
 				errorDiv.classList.remove('hidden');
 			} else {
-				window.location.href = result.role === 'admin' ? '/admin/dashboard' : '/dashboard';
+				var target = '/dashboard';
+				try {
+					var meRes = await fetch('/api/auth/me', { credentials: 'same-origin' });
+					if (meRes.ok) {
+						var me = await meRes.json();
+						target = me.role === 'admin' ? '/admin/dashboard' : '/dashboard';
+					} else if (result && result.role === 'admin') {
+						target = '/admin/dashboard';
+					}
+				} catch (err) {
+					if (result && result.role === 'admin') target = '/admin/dashboard';
+				}
+				window.location.href = target;
 			}
 		} catch (error) {
 			errorDiv.textContent = 'Ocurrió un error inesperado';
