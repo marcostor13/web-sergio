@@ -2,3 +2,8 @@
 .netlify
 node_modules
 dist
+
+# Variables de entorno - NUNCA subir al repo
+.env
+.env.local
+.env.production
