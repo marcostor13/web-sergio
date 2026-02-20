@@ -140,27 +140,77 @@ const adminUser = await (User as any).findById(decoded.userId);
             container.innerHTML = '<div class="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400">No se encontraron resultados</div>';
             return;
         }
-        var html = '';
+
+        // Agrupar por usuario
+        var grouped = {};
         for (var i = 0; i < currentFisList.length; i++) {
             var fi = currentFisList[i];
-            var user = fi.user || {};
+            var userId = (fi.user && fi.user._id) || 'unknown';
+            if (!grouped[userId]) {
+                grouped[userId] = {
+                    user: fi.user || { name: 'Usuario Desconocido', email: '' },
+                    fis: []
+                };
+            }
+            grouped[userId].fis.push({ data: fi, index: i });
+        }
+
+        var html = '';
+        for (var userId in grouped) {
+            var group = grouped[userId];
+            var user = group.user;
+            var userFis = group.fis;
             var userName = user.name || 'Usuario';
             var userEmail = user.email || '';
-            html += '<div class="bg-white rounded-3xl p-6 border border-slate-100 shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:shadow-primary/5 transition-all group overflow-hidden relative">' +
-                '<div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full -mr-12 -mt-12 transition-all group-hover:bg-primary/10"></div>' +
-                '<div class="flex items-center gap-3 mb-6">' +
-                '<div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-black text-slate-400 text-xs">' + escapeHtml(userName.charAt(0)) + '</div>' +
-                '<div><h4 class="text-sm font-black text-slate-900 line-clamp-1">' + escapeHtml(userName) + '</h4>' +
-                '<p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">' + escapeHtml(userEmail) + '</p></div></div>' +
-                '<h3 class="text-lg font-black text-slate-900 mb-3 leading-tight min-h-[3.5rem] line-clamp-2">' + escapeHtml(fi.title) + '</h3>' +
-                '<div class="mb-6"><div class="flex justify-between text-[10px] font-black mb-1.5">' +
-                '<span class="text-slate-400 uppercase">Progreso</span><span class="text-primary">' + (fi.percentage || 0) + '%</span></div>' +
-                '<div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">' +
-                '<div class="h-full bg-primary transition-all duration-1000" style="width:' + (fi.percentage || 0) + '%"></div></div></div>' +
-                '<div class="pt-4 border-t border-slate-50 flex justify-between items-center">' +
-                '<span class="text-[10px] text-slate-300 font-bold">' + (fi.createdAt ? new Date(fi.createdAt).toLocaleDateString() : '') + '</span>' +
-                '<button type="button" class="ver-detalles text-[10px] font-black text-primary hover:underline uppercase tracking-widest" data-fi-index="' + i + '">Ver Detalles</button>' +
-                '</div></div>';
+
+            html += '<div class="col-span-full bg-white rounded-[2rem] p-8 border border-slate-100 shadow-xl shadow-slate-200/40 mb-12 last:mb-0 relative overflow-hidden">' +
+                '<div class="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-bl-full -mr-32 -mt-32 -z-0"></div>' +
+                '<div class="relative z-10">' +
+                    '<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pb-8 border-b border-slate-50">' +
+                        '<div class="flex items-center gap-5">' +
+                            '<div class="w-16 h-16 rounded-2xl bg-slate-900 flex items-center justify-center font-black text-white text-2xl shadow-lg">' + 
+                                escapeHtml(userName.charAt(0).toUpperCase()) + 
+                            '</div>' +
+                            '<div>' +
+                                '<h3 class="text-2xl font-black text-slate-900 leading-tight">' + escapeHtml(userName) + '</h3>' +
+                                '<p class="text-xs text-slate-400 font-bold uppercase tracking-widest">' + escapeHtml(userEmail) + '</p>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="flex items-center gap-2">' +
+                             '<div class="bg-primary/10 text-primary px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-primary/10">' + 
+                                userFis.length + ' ' + (userFis.length === 1 ? 'FI' : 'FIs') + 
+                             '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">';
+            
+            for (var j = 0; j < userFis.length; j++) {
+                var fiItem = userFis[j];
+                var fi = fiItem.data;
+                var idx = fiItem.index;
+
+                html += '<div class="bg-slate-50/50 rounded-2xl p-6 border border-slate-100 hover:border-primary/30 hover:bg-white hover:shadow-lg transition-all group relative flex flex-col h-full">' +
+                    '<h4 class="text-base font-black text-slate-900 mb-4 leading-tight line-clamp-2 min-h-[3rem]">' + escapeHtml(fi.title) + '</h4>' +
+                    '<div class="mb-6 mt-auto">' +
+                        '<div class="flex justify-between text-[10px] font-black mb-2">' +
+                            '<span class="text-slate-400 uppercase tracking-widest">Progreso</span>' +
+                            '<span class="text-primary">' + (fi.percentage || 0) + '%</span>' +
+                        '</div>' +
+                        '<div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">' +
+                            '<div class="h-full bg-primary transition-all duration-1000" style="width:' + (fi.percentage || 0) + '%"></div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="pt-4 border-t border-slate-100 flex justify-between items-center mt-auto">' +
+                        '<span class="text-[10px] text-slate-400 font-bold">' + (fi.createdAt ? new Date(fi.createdAt).toLocaleDateString() : '') + '</span>' +
+                        '<button type="button" class="ver-detalles text-[10px] font-black text-primary hover:underline uppercase tracking-widest flex items-center gap-1" data-fi-index="' + idx + '">' +
+                            'Ver Detalles' +
+                            '<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>' +
+                        '</button>' +
+                    '</div>' +
+                '</div>';
+            }
+            
+            html += '</div></div></div>';
         }
         container.innerHTML = html;
     }
